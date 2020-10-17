@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom';
-
 import { FiArrowRight } from 'react-icons/fi';
+
 import '../styles/pages/landing.scss';
 import logoImg from '../images/logo.svg';
 
@@ -22,7 +22,7 @@ function Landing() {
             </div>
     
             <Link to="app" className="enter-app">
-              <FiArrowRight size={26} color="rgba(0, 0, 0, 0.6)"/>
+              <FiArrowRight size={ 26 } color="rgba(0, 0, 0, 0.6)"/>
             </Link>
           </div>
         </div>

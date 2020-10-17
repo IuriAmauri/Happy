@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
@@ -8,6 +9,7 @@ using api.Database;
 using api.Dtos;
 using api.Entities;
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace api.Controllers
@@ -34,19 +36,36 @@ namespace api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetById(int Id)
         {
-            return Ok(await _orphanageRepository.GetOrphanageById(Id));
+            return Ok(_mapper.Map<OrphanageDto>(await _orphanageRepository.GetOrphanageById(Id)));
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateOrphanage(OrphanageDto orphanageDto)
+        public async Task<IActionResult> CreateOrphanage()
         {
+            CultureInfo culture = new CultureInfo("en-US");
+            
+            var orphanageDto = new OrphanageDto() 
+            {
+                Name = Request.Form["Name"],
+                Latitude = Convert.ToDecimal(Request.Form["Latitude"], culture),
+                Longitude = Convert.ToDecimal(Request.Form["Longitude"], culture),
+                About = Request.Form["About"],
+                Instructions = Request.Form["Instructions"],
+                OpenningHours = Request.Form["OpenningHours"],
+                OpenOnWeekends = Convert.ToBoolean(Request.Form["OpenOnWeekends"])
+            };
+
             if (orphanageDto == null)
                 return BadRequest(nameof(orphanageDto));
 
-            _orphanageRepository.CreateOrphanage(_mapper.Map<Orphanage>(orphanageDto));
+            var orphanage = _orphanageRepository.CreateOrphanage(_mapper.Map<Orphanage>(orphanageDto));
 
             if (await _orphanageRepository.SaveChangesAsync())
-                return Created("", orphanageDto);
+            {
+                await Upload(orphanage.Id, Request.Form.Files);
+
+                return Created("", _mapper.Map<OrphanageDto>(orphanage));
+            }
 
             return BadRequest();
         }
@@ -68,15 +87,15 @@ namespace api.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> Upload()
+        public async Task<IActionResult> Upload(int orphanageId, IFormFileCollection Files)
         {
             var folderName = Path.Combine("Resources", "Images");
             var pathToSave = Path.Combine(Directory.GetCurrentDirectory(), folderName);
 
-            if (Request.Form.Files == null)
+            if (Files == null)
                 return BadRequest();
 
-            foreach (var file in Request.Form.Files)
+            foreach (var file in Files)
             {
                 if (file.Length > 0)
                 {
@@ -90,8 +109,8 @@ namespace api.Controllers
 
                     _orphanageRepository.CreateImage(
                         new OrphanageImage { 
-                            OrphanageId = Convert.ToInt32(Request.Form.FirstOrDefault(w => w.Key == "OrphanageId").Value),
-                            Path = fullPath
+                            OrphanageId = orphanageId,
+                            Path = fileName.Replace("\"", " ").Trim()
                         }
                     );
                 }
